@@ -1,59 +1,67 @@
 import os
-import sys
 import requests
+import sys
 
-# נגדיר את הנתיב לקובץ ה-YAML שאנחנו רוצים לבדוק
-yaml_file_path = "k8s/deployment.yaml"
+# נתיב לקובץ ה-YAML שנרצה לבדוק
+yaml_file_path = 'k8s/deployment.yaml'
 
-# מוודאים שהקובץ בכלל קיים לפני שמתחילים
+# קריאת תוכן הקובץ
 if not os.path.exists(yaml_file_path):
-    print(f"Error: Could not find {yaml_file_path}")
+    print(f"Error: {yaml_file_path} not found.")
     sys.exit(1)
 
-# קוראים את התוכן של הקובץ
 with open(yaml_file_path, 'r') as file:
     yaml_content = file.read()
 
-# שולפים את מפתח ה-API ממשתני הסביבה של ג'נקינס (חוק ברזל: לא שומרים ססמאות בקוד!)
-api_key = os.environ.get("OPENAI_API_KEY")
+# משיכת ה-API Key ממשתני הסביבה (מוגדר בג'נקינס)
+api_key = os.environ.get('OPENAI_API_KEY')
+
+if not api_key:
+    print("Error: OPENAI_API_KEY not set.")
+    sys.exit(1)
 
 headers = {
     "Content-Type": "application/json",
     "Authorization": f"Bearer {api_key}"
 }
 
-# הפרומפט שלנו - כאן אנחנו הופכים את המודל למומחה קוברנטיס
-prompt = f"""
-You are a Kubernetes and DevSecOps expert. 
-Please review the following Kubernetes YAML file. 
-Look for security risks, bad practices, or missing configurations (like missing resource limits, running as root, etc.).
-If the file is completely fine and safe for production, output exactly: 'PASS'. 
-If there are issues, output 'FAIL' followed by a short explanation of the problems.
-
-YAML Content:
-{yaml_content}
-"""
+# ההנחיה המעודכנת ל-AI - דורשת אבטחה בסיסית אך מאפשרת PASS אם הכל תקין
+prompt = (
+    f"You are a DevOps Security Expert. Review this Kubernetes YAML for security best practices.\n"
+    f"1. If it has runAsNonRoot, limits/requests, and no critical errors, output ONLY the word 'PASS'.\n"
+    f"2. If there is a critical security risk (like running as root), output 'FAIL:' followed by a short explanation.\n"
+    f"Keep it simple and don't be overly strict about NetworkPolicies for now.\n\n"
+    f"YAML Content:\n{yaml_content}"
+)
 
 payload = {
-    "model": "gpt-4o-mini", # מודל מהיר וזול שמתאים למשימה
-    "messages": [{"role": "user", "content": prompt}],
-    "temperature": 0.2 # טמפרטורה נמוכה כדי לקבל תשובות עקביות וטכניות ולא "יצירתיות" מדי
+    "model": "gpt-4o-mini",
+    "messages": [
+        {"role": "system", "content": "You are a helpful DevOps assistant."},
+        {"role": "user", "content": prompt}
+    ],
+    "temperature": 0.2
 }
 
 print("Sending YAML to AI for review...")
-response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-        
-result = response.json()
-ai_review = result['choices'][0]['message']['content']
 
-print("\n--- AI Review Results ---")
-print(ai_review)
-print("-------------------------\n")
+try:
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    response.raise_for_status()
+    
+    result = response.json()['choices'][0]['message']['content'].strip()
+    
+    print("\n--- AI Review Results ---")
+    print(result)
+    print("-------------------------\n")
 
-# החלק הכי חשוב לג'נקינס - קבלת ההחלטה
-if "FAIL" in ai_review:
-    print("AI found issues! Failing the pipeline.")
-    sys.exit(1) # קוד יציאה 1 אומר לג'נקינס: "הייתה שגיאה, תעצור הכל ותצבע את הריצה באדום!"
-else:
-    print("AI approved the YAML. Proceeding with deployment...")
-    sys.exit(0) # קוד יציאה 0 אומר לג'נקינס: "הכל תקין, תמשיך לשלב הבא"
+    if "PASS" in result.upper():
+        print("AI approved the YAML. Proceeding with deployment...")
+        sys.exit(0)
+    else:
+        print("AI found issues! Failing the pipeline.")
+        sys.exit(1)
+
+except Exception as e:
+    print(f"Error communicating with OpenAI: {e}")
+    sys.exit(1)

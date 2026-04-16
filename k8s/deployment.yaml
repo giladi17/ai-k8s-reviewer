@@ -1,23 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app
+  name: wordface-api
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: my-app
+      app: wordface-api
   template:
     metadata:
       labels:
-        app: my-app
+        app: wordface-api
     spec:
+      # כאן אנחנו אומרים לו להשתמש בסוד שיצרנו
+      imagePullSecrets:
+      - name: aws-registry
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
       containers:
-      - name: my-app-container
-        image: nginx:1.24.0
+      - name: wordface-api-container
+        # הכתובת של התמונה שלנו באמזון
+        image: 066380525112.dkr.ecr.us-east-1.amazonaws.com/wordface-api:1.0
+        ports:
+        - containerPort: 8000
         securityContext:
           allowPrivilegeEscalation: false
         resources:

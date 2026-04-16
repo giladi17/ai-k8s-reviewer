@@ -10,7 +10,7 @@ pipeline {
         
         // שם ה-Repository
         ECR_REPOSITORY = 'wordface-api'
-        IMAGE_TAG = '1.0'
+        IMAGE_TAG = '3.0'
     }
 
     stages {

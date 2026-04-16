@@ -21,7 +21,7 @@ spec:
       containers:
       - name: wordface-api-container
         # הכתובת של התמונה שלנו באמזון
-        image: 066380525112.dkr.ecr.us-east-1.amazonaws.com/wordface-api:1.0
+        image: 066380525112.dkr.ecr.us-east-1.amazonaws.com/wordface-api:3.0
         ports:
         - containerPort: 8000
         securityContext:

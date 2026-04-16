@@ -12,18 +12,30 @@ spec:
       labels:
         app: wordface-api
     spec:
-      # כאן אנחנו אומרים לו להשתמש בסוד שיצרנו
       imagePullSecrets:
       - name: aws-registry
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+        runAsGroup: 3000 # הוספנו את הקבוצה לפי דרישת ה-AI
       containers:
       - name: wordface-api-container
-        # הכתובת של התמונה שלנו באמזון
         image: 066380525112.dkr.ecr.us-east-1.amazonaws.com/wordface-api:3.0
         ports:
         - containerPort: 8000
+        # הוספנו בדיקות חיוּת לפי דרישת ה-AI
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
         securityContext:
           allowPrivilegeEscalation: false
         resources:
